@@ -1,0 +1,963 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gestor de Hules – Almacén</title>
+    <style>
+        :root {
+            --bg: #0f172a;           /* slate-900 */
+            --panel: #111827;        /* gray-900 */
+            --panel-2: #0b1220;
+            --text: #e5e7eb;         /* gray-200 */
+            --muted: #9ca3af;        /* gray-400 */
+            --accent: #22c55e;       /* green-500 */
+            --accent-2: #3b82f6;     /* blue-500 */
+            --warn: #f59e0b;         /* amber-500 */
+            --danger: #ef4444;       /* red-500 */
+            --card: #1f2937;         /* gray-800 */
+            --border: #374151;       /* gray-700 */
+            --highlight: rgba(59,130,246,.25);
+            --radius: 16px;
+        }
+        * { box-sizing: border-box; }
+        html, body { height: 100%; }
+        body {
+            margin: 0;
+            background: radial-gradient(1200px 800px at 20% -10%, #13213a 0, var(--bg) 40%), var(--bg);
+            color: var(--text);
+            font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, 'Helvetica Neue', Arial, 'Noto Sans', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            gap: 18px;
+            padding: 18px;
+            overflow: hidden;
+        }
+        header {
+            grid-column: 1 / -1;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+        header h1 {
+            font-size: 22px;
+            margin: 0;
+            font-weight: 700;
+            letter-spacing: .3px;
+        }
+        header .badge {
+            font-size: 12px;
+            color: var(--muted);
+            background: #0b1220;
+            padding: 4px 10px;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+        }
+        .sidebar {
+            background: linear-gradient(180deg, #0f172a, #0b1220);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 16px;
+            display: grid;
+            grid-template-rows: auto 1fr auto;
+            height: calc(100vh - 120px);
+        }
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        .nav {
+            display: grid;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        .nav button {
+            all: unset;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            border-radius: 12px;
+            border: 1px solid transparent;
+            cursor: pointer;
+            color: var(--text);
+        }
+        .nav button.active {
+            background: #0d1b31;
+            border-color: var(--border);
+        }
+        .nav button:hover {
+            background: #0b1627;
+        }
+        .nav .hint {
+            color: var(--muted);
+            font-size: 12px;
+            margin-left: 12px;
+        }
+        .panel {
+            background: linear-gradient(180deg, #0f172a, #0b1220);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 16px;
+            height: calc(100vh - 120px);
+            overflow: hidden;
+            display: grid;
+            grid-template-rows: auto 1fr;
+            gap: 10px;
+        }
+        .panel h2 {
+            margin: 0 0 6px;
+            font-size: 18px;
+        }
+        .section {
+            display: none;
+            height: 100%;
+        }
+        .section.active {
+            display: grid;
+            grid-template-rows: auto 1fr;
+            gap: 12px;
+        }
+        .form {
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            gap: 10px;
+            background: var(--panel-2);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 12px;
+        }
+        .form .field {
+            display: grid;
+            gap: 6px;
+            grid-column: span 4;
+        }
+        .form .field label {
+            font-size: 12px;
+            color: var(--muted);
+        }
+        .form input, .form select, .form textarea {
+            background: #0e1729;
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px 12px;
+            font-size: 14px;
+        }
+        .form textarea {
+            min-height: 40px;
+            resize: vertical;
+        }
+        .form .field.span-6 {
+            grid-column: span 6;
+        }
+        .form .field.span-8 {
+            grid-column: span 8;
+        }
+        .form .actions {
+            grid-column: 1 / -1;
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+        .btn {
+            all: unset;
+            background: #132442;
+            color: var(--text);
+            border: 1px solid var(--border);
+            padding: 10px 14px;
+            border-radius: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: filter 0.2s;
+        }
+        .btn:hover {
+            filter: brightness(1.1);
+        }
+        .btn.primary {
+            background: #17325c;
+            border-color: #315f9f;
+        }
+        .btn.success {
+            background: #0f2f22;
+            border-color: #1d6b4c;
+        }
+        .btn.warn {
+            background: #3a2b0e;
+            border-color: #8f6a14;
+        }
+        .btn.danger {
+            background: #3a1313;
+            border-color: #8f2a2a;
+        }
+        .btn.ghost {
+            background: transparent;
+            border-color: var(--border);
+        }
+        /* Grid area */
+        .grid-wrap {
+            background: var(--panel-2);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 10px;
+            overflow: hidden;
+            display: grid;
+            grid-template-rows: auto 1fr;
+        }
+        .grid-toolbar {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+        .grid-toolbar .left, .grid-toolbar .right {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        .grid-toolbar input {
+            padding: 8px 10px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: #0e1729;
+            color: var(--text);
+        }
+        .grid {
+            height: 100%;
+            overflow: auto;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+        }
+        table {
+            border-collapse: separate;
+            border-spacing: 0;
+            width: max-content;
+            min-width: 100%;
+        }
+        thead th {
+            position: sticky;
+            top: 0;
+            background: #0a1427;
+            border-bottom: 1px solid var(--border);
+            z-index: 2;
+            font-weight: 600;
+            font-size: 12px;
+            padding: 8px;
+            color: var(--muted);
+        }
+        tbody th {
+            position: sticky;
+            left: 0;
+            background: #0a1427;
+            border-right: 1px solid var(--border);
+            z-index: 1;
+            font-weight: 600;
+            font-size: 12px;
+            padding: 8px;
+            color: var(--muted);
+        }
+        td {
+            border-right: 1px solid #1c2a45;
+            border-bottom: 1px solid #1c2a45;
+            min-width: 90px;
+            height: 42px;
+            padding: 0;
+            transition: all 0.2s;
+        }
+        .cell {
+            width: 100%;
+            height: 100%;
+            display: grid;
+            place-items: center;
+            cursor: pointer;
+            background: linear-gradient(180deg, #0b1627, #0c1a2e);
+        }
+        .cell:hover {
+            outline: 2px dashed #264b8f;
+            outline-offset: -2px;
+        }
+        .cell.occupied {
+            background: linear-gradient(180deg, #0d1f3a, #0c1a2e);
+        }
+        .tag {
+            background: #1e293b;
+            border: 1px solid var(--border);
+            padding: 2px 6px;
+            border-radius: 8px;
+            font-size: 12px;
+            white-space: nowrap;
+            max-width: 82px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .highlight {
+            box-shadow: inset 0 0 0 2px var(--accent), 0 0 0 6px rgba(34, 197, 94, 0.25);
+        }
+        /* Results list */
+        .results {
+            overflow: auto;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+        }
+        .result-item {
+            display: grid;
+            grid-template-columns: 1fr auto auto;
+            gap: 8px;
+            padding: 10px;
+            border-bottom: 1px solid var(--border);
+            background: #0d1a31;
+            align-items: center;
+        }
+        .result-item:hover {
+            background: #0f1f3b;
+        }
+        .result-meta {
+            font-size: 12px;
+            color: var(--muted);
+        }
+        /* Footer */
+        .footer {
+            color: var(--muted);
+            font-size: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        /* Modal */
+        dialog {
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            background: #0b1220;
+            color: var(--text);
+            width: 520px;
+            max-width: 95vw;
+        }
+        dialog::backdrop {
+            background: rgba(2,6,23,.6);
+        }
+        dialog .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 14px;
+            border-bottom: 1px solid var(--border);
+        }
+        dialog h3 {
+            margin: 0;
+            font-size: 16px;
+        }
+        dialog .content {
+            padding: 14px;
+            display: grid;
+            gap: 10px;
+        }
+        dialog .actions {
+            padding: 14px;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            border-top: 1px solid var(--border);
+        }
+        .small {
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        /* --- Estilos responsivos para móvil --- */
+        @media (max-width: 768px) {
+            body {
+                grid-template-columns: 1fr;
+                padding: 10px;
+                gap: 10px;
+                height: auto;
+                overflow-y: auto;
+            }
+            header h1 {
+                font-size: 18px;
+            }
+            .sidebar, .panel {
+                padding: 12px;
+                height: auto;
+            }
+            .nav {
+                display: flex;
+                flex-direction: column;
+            }
+            .nav .hint {
+                display: none;
+            }
+            .form .field, .form .field.span-6, .form .field.span-8 {
+                grid-column: span 12;
+            }
+            .grid-wrap {
+                padding: 8px;
+            }
+            .grid-toolbar {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .grid-toolbar .left, .grid-toolbar .right {
+                width: 100%;
+                justify-content: space-between;
+            }
+            .grid-toolbar input {
+                width: 100%;
+            }
+            .result-meta {
+                font-size: 10px;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            dialog {
+                width: 95vw;
+                left: 2.5vw;
+            }
+            dialog .header h3 {
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="badge">Gestor de Hules – Almacén</div>
+        <h1>Heidelberg</h1>
+    </header>
+    <aside class="sidebar">
+        <div>
+            <div class="brand">
+                <svg width="32" height="32" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" style="margin-right: 4px;">
+                    <circle cx="50" cy="50" r="48" fill="#1f2937" stroke="#374151" stroke-width="4"/>
+                    <text x="50" y="62" font-family="system-ui, sans-serif" font-size="40" font-weight="bold" fill="#e5e7eb" text-anchor="middle">PMP</text>
+                </svg>
+                <strong>Imprenta</strong> • Almacén de Hules
+            </div>
+            <div class="nav">
+                <button class="tab-btn active" data-tab="tab-grid">📦 Mapa del almacén</button>
+                <span class="hint">Visualiza y haz clic sobre celdas</span>
+                <button class="tab-btn" data-tab="tab-add">➕ Agregar hule</button>
+                <button class="tab-btn" data-tab="tab-search">🔎 Buscar por número</button>
+                <button class="tab-btn" data-tab="tab-import">⬆️ Importar / ⬇️ Exportar CSV</button>
+            </div>
+        </div>
+        <div class="footer">
+            <span>Sesión local</span>
+            <span id="countSpan">0 ocupados</span>
+        </div>
+    </aside>
+    <main class="panel">
+        <div style="display:flex; align-items:center; gap:8px;">
+            <h2 id="panelTitle">Mapa del almacén</h2>
+            <span class="small">Filas: (16) • Columnas: 1–60</span>
+        </div>
+        <section id="tab-grid" class="section active">
+            <div class="grid-wrap">
+                <div class="grid-toolbar">
+                    <div class="left">
+                        <input id="quickSearch" type="text" placeholder="Búsqueda rápida (ej. 1450, 1450a)" />
+                        <button class="btn ghost" id="btnClearSearch">Limpiar</button>
+                    </div>
+                    <div class="right">
+                        <button class="btn" id="btnZoomOut">-</button>
+                        <span class="small" id="zoomLabel">100%</span>
+                        <button class="btn" id="btnZoomIn">+</button>
+                    </div>
+                </div>
+                <div id="grid" class="grid"></div>
+            </div>
+        </section>
+        <section id="tab-add" class="section">
+            <form id="addForm" class="form" autocomplete="off">
+                <div class="field span-6">
+                    <label>Número de serie *</label>
+                    <input id="addId" placeholder="Ej. 1450 o 1450a" required />
+                </div>
+                <div class="field span-12">
+                    <label>Descripción</label>
+                    <textarea id="addDesc" placeholder="Detalles opcionales"></textarea>
+                </div>
+                <div class="field">
+                    <label>Fila</label>
+                    <select id="addRow"></select>
+                </div>
+                <div class="field">
+                    <label>Columna</label>
+                    <select id="addCol"></select>
+                </div>
+                <div class="field span-6">
+                    <label>Asignación</label>
+                    <select id="assignMode">
+                        <option value="manual">Manual (usar fila/columna)</option>
+                        <option value="auto">Automática (primera libre)</option>
+                    </select>
+                </div>
+                <div class="actions">
+                    <button type="button" class="btn" id="btnSuggest">Sugerir espacio libre</button>
+                    <button class="btn success" type="submit">Agregar</button>
+                </div>
+            </form>
+            <div class="small">Reglas: la celda no puede estar ocupada. Se permiten números repetidos en distintas celdas (p.ej., 1450 y 1450a), la clave distingue mayúsculas/minúsculas ignoradas.</div>
+        </section>
+        <section id="tab-search" class="section">
+            <div class="form">
+                <div class="field span-8">
+                    <label>Buscar número de serie</label>
+                    <input id="searchInput" placeholder="Ej. 1450, 1450a, 450" />
+                </div>
+                <div class="actions">
+                    <button class="btn" id="btnSearch">Buscar</button>
+                    <button class="btn ghost" id="btnSearchClear">Limpiar</button>
+                </div>
+            </div>
+            <div class="results" id="results"></div>
+        </section>
+        <section id="tab-import" class="section">
+            <div class="form">
+                <div class="field span-6">
+                    <label>Exportar CSV</label>
+                    <button class="btn primary" id="btnExport">Descargar CSV</button>
+                </div>
+                <div class="field span-6">
+                    <label>Importar CSV</label>
+                    <input type="file" id="fileInput" accept=".csv" />
+                    <div style="display:flex; align-items:center; gap:8px; margin-top:6px;">
+                        <input type="checkbox" id="replaceMode" />
+                        <label for="replaceMode" class="small">Reemplazar todo (si no, combina/actualiza)
+                        </label>
+                    </div>
+                </div>
+                <div class="actions">
+                    <button class="btn" id="btnImport">Importar</button>
+                    <button class="btn warn" id="btnClearAll">Vaciar almacén (confirmar)</button>
+                </div>
+            </div>
+            <div class="small">Formato CSV: id,descripcion,fila,columna,fechaISO</div>
+        </section>
+    </main>
+    <dialog id="editDialog">
+        <div class="header">
+            <h3>Editar hule</h3>
+            <button class="btn ghost" id="btnCloseModal">✖</button>
+        </div>
+        <div class="content">
+            <div class="form" id="editFormGrid" style="grid-template-columns: repeat(12, 1fr);">
+                <div class="field span-6">
+                    <label>Número de serie *</label>
+                    <input id="editId" />
+                </div>
+                <div class="field span-12">
+                    <label>Descripción</label>
+                    <textarea id="editDesc"></textarea>
+                </div>
+                <div class="field">
+                    <label>Fila</label>
+                    <select id="editRow"></select>
+                </div>
+                <div class="field">
+                    <label>Columna</label>
+                    <select id="editCol"></select>
+                </div>
+            </div>
+            <div class="small" id="editInfo"></div>
+        </div>
+        <div class="actions">
+            <button class="btn success" id="btnSaveEdit">Guardar cambios</button>
+            <button class="btn danger" id="btnDelete">Eliminar</button>
+        </div>
+    </dialog>
+    <script>
+        // ====== Datos base ======
+        const ROWS = ["A","B","C","D","E","F","G","H","I","J","K","L","M","N","Ñ","O"]; // incluye Ñ
+        const COLS = Array.from({length:60}, (_,i)=> i+1);
+
+        /** Estado en memoria */
+        let store = {
+            items: /** @type {Array<{id:string, desc:string, row:string, col:number, ts:string}>} */([]),
+        };
+
+        const $ = (sel, root=document) => root.querySelector(sel);
+        const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
+
+        // ====== Persistencia (localStorage + CSV) ======
+        const LS_KEY = 'hules-store-v1';
+
+        function loadFromLocal() {
+            try {
+                const raw = localStorage.getItem(LS_KEY);
+                if (!raw) return;
+                const data = JSON.parse(raw);
+                if (Array.isArray(data.items)) store.items = data.items;
+            } catch(e) { console.warn('No se pudo cargar localStorage', e); }
+        }
+
+        function saveToLocal() {
+            localStorage.setItem(LS_KEY, JSON.stringify(store));
+        }
+
+        function toCSV() {
+            const header = 'id,descripcion,fila,columna,fechaISO\n';
+            const lines = store.items.map(it => [
+                escapeCsv(it.id),
+                escapeCsv(it.desc || ''),
+                it.row,
+                it.col,
+                it.ts
+            ].join(','));
+            return header + lines.join('\n');
+        }
+
+        function escapeCsv(val) {
+            if (val == null) return '';
+            const s = String(val);
+            if (s.includes('"') || s.includes(',') || s.includes('\n')) {
+                return '"' + s.replaceAll('"', '""') + '"';
+            }
+            return s;
+        }
+
+        function download(filename, content) {
+            const blob = new Blob([content], {type: 'text/csv;charset=utf-8;'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = filename; a.click();
+            setTimeout(()=> URL.revokeObjectURL(url), 500);
+        }
+
+        async function importCSV(text, {replace=false}={}) {
+            const lines = text.split(/\r?\n/).filter(Boolean);
+            if (!lines.length) return;
+            const start = lines[0].toLowerCase().includes('id') ? 1 : 0;
+            const parsed = [];
+            for (let i=start;i<lines.length;i++){
+                const row = parseCsvLine(lines[i]);
+                if (!row) continue;
+                const [id, desc, fila, col, ts] = row;
+                if (!id || !fila || !col) continue;
+                const colNum = Number(col);
+                if (!ROWS.includes(fila.toUpperCase()) || !COLS.includes(colNum)) continue;
+                parsed.push({id: String(id).trim(), desc: String(desc||'').trim(), row: fila.toUpperCase(), col: colNum, ts: ts || new Date().toISOString()});
+            }
+            if (replace) {
+                store.items = parsed;
+            } else {
+                // merge: update if same cell, else add
+                for (const it of parsed) {
+                    const idx = store.items.findIndex(x => x.row===it.row && x.col===it.col);
+                    if (idx>=0) store.items[idx] = it; else store.items.push(it);
+                }
+            }
+            saveToLocal();
+            renderAll();
+        }
+
+        function parseCsvLine(line) {
+            // Simple CSV parser supporting quotes
+            const out = []; let cur = ''; let inQ=false; for (let i=0;i<line.length;i++){
+                const ch = line[i];
+                if (inQ) {
+                    if (ch==='"' && line[i+1]==='"') { cur+='"'; i++; }
+                    else if (ch==='"') inQ=false; else cur+=ch;
+                } else {
+                    if (ch==='"') inQ=true; else if (ch===',') { out.push(cur); cur=''; } else cur+=ch;
+                }
+            }
+            out.push(cur);
+            return out;
+        }
+
+        // ====== Utilidades ======
+        const keyCell = (r,c)=> `${r}-${c}`;
+        const getAt = (r,c)=> store.items.find(it=> it.row===r && it.col===c);
+        const isFree = (r,c)=> !getAt(r,c);
+
+        function countOccupied(){ return store.items.length; }
+
+        function nextFree(){
+            for (const r of ROWS){
+                for (const c of COLS){ if (isFree(r,c)) return {row:r, col:c}; }
+            }
+            return null;
+        }
+
+        function validateId(id){ return /^(\d{1,10})([a-zA-ZñÑ])?$/.test(id.trim()); }
+
+        function focusCell(r,c){
+            const el = document.querySelector(`[data-cell="${keyCell(r,c)}"]`);
+            if (!el) return;
+            const grid = $('#grid');
+            // Asegurarse de que el grid esté visible
+            filterGrid(''); // Limpia cualquier filtro para mostrar la celda
+            $('#quickSearch').value = '';
+
+            el.classList.add('highlight');
+            el.scrollIntoView({behavior:'smooth', block:'center', inline:'center'});
+            setTimeout(()=> el.classList.remove('highlight'), 2000);
+            // Switch to grid tab
+            activateTab('tab-grid');
+        }
+
+        // ====== Render de GRID ======
+        function renderGrid(){
+            const container = $('#grid');
+            container.innerHTML = '';
+            const table = document.createElement('table');
+            const thead = document.createElement('thead');
+            const trh = document.createElement('tr');
+            trh.appendChild(document.createElement('th')); // corner
+            for (const c of COLS){
+                const th = document.createElement('th'); th.textContent = c; trh.appendChild(th);
+            }
+            thead.appendChild(trh); table.appendChild(thead);
+
+            const tbody = document.createElement('tbody');
+            for (const r of ROWS){
+                const tr = document.createElement('tr');
+                const th = document.createElement('th'); th.textContent = r; tr.appendChild(th);
+                for (const c of COLS){
+                    const td = document.createElement('td');
+                    const cell = document.createElement('div'); cell.className = 'cell'; cell.dataset.cell = keyCell(r,c);
+                    const item = getAt(r,c);
+                    if (item){
+                        cell.classList.add('occupied');
+                        const tag = document.createElement('div'); tag.className = 'tag'; tag.title = `${item.id} – ${item.desc||''}`; tag.textContent = item.id; cell.appendChild(tag);
+                    } else {
+                        const tag = document.createElement('div'); tag.className = 'tag'; tag.style.opacity = .35; tag.textContent = 'libre'; cell.appendChild(tag);
+                    }
+                    cell.addEventListener('click', ()=> onCellClick(r,c));
+                    td.appendChild(cell); tr.appendChild(td);
+                }
+                tbody.appendChild(tr);
+            }
+            table.appendChild(tbody); container.appendChild(table);
+        }
+
+        function onCellClick(r,c){
+            const item = getAt(r,c);
+            if (item){ openEdit(item); } else { // prellenar agregar manual
+                activateTab('tab-add');
+                $('#assignMode').value = 'manual';
+                $('#addRow').value = r; $('#addCol').value = String(c);
+                $('#addId').focus();
+            }
+        }
+
+        // ====== Render select options ======
+        function fillSelects(){
+            const rows = ROWS.map(r=> `<option value="${r}">${r}</option>`).join('');
+            const cols = COLS.map(c=> `<option value="${c}">${c}</option>`).join('');
+            ['addRow','editRow'].forEach(id=> $('#'+id).innerHTML = rows);
+            ['addCol','editCol'].forEach(id=> $('#'+id).innerHTML = cols);
+        }
+
+        // ====== Tabs ======
+        function activateTab(id){
+            $$('.section').forEach(s=> s.classList.remove('active'));
+            $('#'+id).classList.add('active');
+            $$('.tab-btn').forEach(b=> b.classList.toggle('active', b.dataset.tab===id));
+            const titles = {
+                'tab-grid':'Mapa del almacén',
+                'tab-add':'Agregar hule',
+                'tab-search':'Búsqueda por número',
+                'tab-import':'Importar / Exportar CSV',
+            };
+            $('#panelTitle').textContent = titles[id] || '';
+        }
+
+        $$('.tab-btn').forEach(btn=> btn.addEventListener('click', ()=> activateTab(btn.dataset.tab)));
+
+        // ====== Alta ======
+        $('#addForm').addEventListener('submit', (e)=>{
+            e.preventDefault();
+            const id = $('#addId').value.trim();
+            const desc = $('#addDesc').value.trim();
+            const mode = $('#assignMode').value;
+            let row = $('#addRow').value; let col = Number($('#addCol').value);
+            if (!validateId(id)) { alert('Número inválido. Usa dígitos y opcional una letra (ej. 1450 o 1450a).'); return; }
+            if (mode==='auto'){
+                const pos = nextFree();
+                if (!pos) { alert('No hay espacios disponibles.'); return; }
+                row = pos.row; col = pos.col;
+            } else {
+                if (!ROWS.includes(row) || !COLS.includes(col)) { alert('Posición inválida.'); return; }
+                if (!isFree(row,col)) { alert('La celda seleccionada ya está ocupada.'); return; }
+            }
+            const item = {id, desc, row, col, ts: new Date().toISOString()};
+            store.items.push(item); saveToLocal(); renderAll();
+            $('#addForm').reset();
+            $('#assignMode').value = mode; // conservar
+            alert(`Agregado en ${row}-${col}.`);
+            focusCell(row,col);
+        });
+
+        $('#btnSuggest').addEventListener('click', ()=>{
+            const p = nextFree();
+            if (!p) { alert('No hay espacios libres.'); return; }
+            $('#addRow').value = p.row; $('#addCol').value = String(p.col);
+            activateTab('tab-grid'); focusCell(p.row, p.col);
+        });
+
+        // ====== Edición ======
+        let editing = null; // referencia al item en edición (por índice)
+
+        function openEdit(item){
+            editing = store.items.findIndex(x=> x.row===item.row && x.col===item.col);
+            if (editing<0) return;
+            $('#editId').value = item.id; $('#editDesc').value = item.desc || '';
+            $('#editRow').value = item.row; $('#editCol').value = String(item.col);
+            $('#editInfo').textContent = `Ubicación actual: ${item.row}-${item.col} • Creado: ${new Date(item.ts).toLocaleString()}`;
+            $('#editDialog').showModal();
+        }
+
+        $('#btnCloseModal').addEventListener('click', ()=> $('#editDialog').close());
+
+        $('#btnSaveEdit').addEventListener('click', ()=>{
+            if (editing==null) return;
+            const id = $('#editId').value.trim();
+            const desc = $('#editDesc').value.trim();
+            const row = $('#editRow').value; const col = Number($('#editCol').value);
+            if (!validateId(id)) { alert('Número inválido.'); return; }
+            if (!ROWS.includes(row) || !COLS.includes(col)) { alert('Posición inválida.'); return; }
+
+            // Si cambió de celda, verificar disponibilidad
+            const old = store.items[editing];
+            if (old.row!==row || old.col!==col) {
+                if (!isFree(row,col)) { alert('La celda destino está ocupada.'); return; }
+            }
+            store.items[editing] = { ...old, id, desc, row, col };
+            saveToLocal(); renderAll();
+            $('#editDialog').close();
+            focusCell(row,col);
+        });
+
+        $('#btnDelete').addEventListener('click', ()=>{
+            if (editing==null) return;
+            const it = store.items[editing];
+            const ok = confirm(`¿Eliminar ${it.id} en ${it.row}-${it.col}?`);
+            if (!ok) return;
+            store.items.splice(editing,1); editing=null; saveToLocal(); renderAll(); $('#editDialog').close();
+        });
+
+        // ====== Búsqueda ======
+        function doSearch(q){
+            const query = q.trim().toLowerCase();
+            const res = store.items.filter(it => it.id.toLowerCase().includes(query));
+            const box = $('#results');
+            box.innerHTML = '';
+            if (!query) { box.innerHTML = '<div class="small" style="padding:10px;">Escribe un término para buscar…</div>'; return; }
+            if (!res.length) { box.innerHTML = '<div class="small" style="padding:10px;">Sin resultados</div>'; return; }
+            for (const it of res) {
+                const row = document.createElement('div'); row.className = 'result-item';
+                const main = document.createElement('div');
+                main.innerHTML = `<strong>${it.id}</strong><div class="result-meta">${it.desc || 'Sin descripción'}</div>`;
+                const pos = document.createElement('div'); pos.className='result-meta'; pos.textContent = `${it.row}-${it.col}`;
+                const btn = document.createElement('button'); btn.className='btn ghost'; btn.textContent = 'Ver'; btn.addEventListener('click', ()=> focusCell(it.row, it.col));
+                row.appendChild(main); row.appendChild(pos); row.appendChild(btn); box.appendChild(row);
+            }
+        }
+
+        $('#btnSearch').addEventListener('click', ()=> doSearch($('#searchInput').value));
+        $('#btnSearchClear').addEventListener('click', ()=> { $('#searchInput').value=''; doSearch(''); });
+
+        // ====== Filtro Visual del Grid ======
+        function filterGrid(query) {
+            const q = query.trim().toLowerCase();
+            const table = $('#grid table');
+            if (!table) return;
+
+            const dataRows = $$('tbody tr', table);
+            const headerCols = $$('thead th', table).slice(1);
+
+            if (!q) {
+                dataRows.forEach(tr => tr.style.display = '');
+                headerCols.forEach(th => th.style.display = '');
+                dataRows.forEach(tr => { $$('td', tr).forEach(td => td.style.display = ''); });
+                return;
+            }
+
+            const matchingItems = store.items.filter(it => it.id.toLowerCase().includes(q));
+            const visibleRows = new Set(matchingItems.map(it => it.row));
+            const visibleCols = new Set(matchingItems.map(it => it.col));
+
+            dataRows.forEach(tr => {
+                const rowHeader = tr.querySelector('th')?.textContent;
+                tr.style.display = (rowHeader && visibleRows.has(rowHeader)) ? '' : 'none';
+            });
+
+            headerCols.forEach((th, index) => {
+                const colNum = index + 1;
+                th.style.display = visibleCols.has(colNum) ? '' : 'none';
+            });
+
+            dataRows.forEach(tr => {
+                $$('td', tr).forEach((td, index) => {
+                    const colNum = index + 1;
+                    td.style.display = visibleCols.has(colNum) ? '' : 'none';
+                });
+            });
+        }
+
+        $('#quickSearch').addEventListener('input', (e) => filterGrid(e.target.value));
+        $('#btnClearSearch').addEventListener('click', ()=> {
+            $('#quickSearch').value = '';
+            filterGrid('');
+        });
+
+        // ====== Import/Export ======
+        $('#btnExport').addEventListener('click', ()=>{
+            const csv = toCSV();
+            const now = new Date();
+            const name = `hules_${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}.csv`;
+            download(name, csv);
+        });
+
+        $('#btnImport').addEventListener('click', async ()=>{
+            const file = $('#fileInput').files?.[0];
+            if (!file) { alert('Elige un CSV primero.'); return; }
+            const text = await file.text();
+            const replace = $('#replaceMode').checked;
+            await importCSV(text, {replace});
+            alert('Importación completada.');
+        });
+
+        $('#btnClearAll').addEventListener('click', ()=>{
+            if (!store.items.length) { alert('Ya está vacío.'); return; }
+            const ok = confirm('¿Seguro que deseas vaciar todo el almacén? Esta acción no se puede deshacer.');
+            if (!ok) return;
+            store.items = []; saveToLocal(); renderAll();
+        });
+
+        // ====== Zoom (ancho de celdas) ======
+        let zoom = 1; // 1 = 100%
+        function applyZoom(){
+            const w = 90 * zoom; const h = 42 * zoom;
+            $$('#grid td').forEach(td=> { td.style.minWidth = w+'px'; td.style.height = h+'px'; });
+            $('#zoomLabel').textContent = Math.round(zoom*100)+"%";
+        }
+        $('#btnZoomIn').addEventListener('click', ()=> { zoom = Math.min(2, zoom+0.1); applyZoom(); });
+        $('#btnZoomOut').addEventListener('click', ()=> { zoom = Math.max(0.6, zoom-0.1); applyZoom(); });
+
+        // ====== Render general ======
+        function updateCounters(){ $('#countSpan').textContent = `${countOccupied()} ocupados`; }
+
+        function renderAll(){
+            renderGrid();
+            updateCounters();
+            applyZoom();
+            filterGrid($('#quickSearch').value); // Re-apply filter on full render
+        }
+
+        // ====== Init ======
+        function init(){
+            fillSelects();
+            loadFromLocal();
+            renderAll();
+        }
+
+        init();
+    </script>
+</body>
+</html>
