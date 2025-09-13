@@ -751,7 +751,13 @@
             return null;
         }
 
-        function validateId(id){ return /^(\d{1,10})([a-zA-ZñÑ])?$/.test(id.trim()); }
+        // --- INICIO DE LA MODIFICACIÓN ---
+        // Se actualiza la expresión regular para ser más flexible.
+        function validateId(id){
+            // Permite: letra (opcional) + números (requerido) + letra (opcional)
+            return /^[a-zA-ZñÑ]{0,1}\d+[a-zA-ZñÑ]{0,1}$/i.test(id.trim());
+        }
+        // --- FIN DE LA MODIFICACIÓN ---
 
         function focusCell(r,c){
             const el = document.querySelector(`[data-cell="${keyCell(r,c)}"]`);
@@ -869,7 +875,7 @@
             const desc = $('#addDesc').value.trim();
             const mode = $('#assignMode').value;
             let row = $('#addRow').value; let col = Number($('#addCol').value);
-            if (!validateId(id)) { showNotification('Número inválido. Usa dígitos y opcionalmente una letra (ej. 1450 o 1450a).', 'error'); return; }
+            if (!validateId(id)) { showNotification('Número de serie inválido.', 'error'); return; }
             if (mode==='auto'){
                 const pos = nextFree();
                 if (!pos) { showNotification('No hay espacios disponibles.', 'error'); return; }
