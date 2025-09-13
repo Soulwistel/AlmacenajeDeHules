@@ -337,6 +337,8 @@
         }
         dialog::backdrop {
             background: rgba(2,6,23,.6);
+            -webkit-backdrop-filter: blur(2px);
+            backdrop-filter: blur(2px);
         }
         dialog .header {
             display: flex;
@@ -365,6 +367,50 @@
             font-size: 12px;
             color: var(--muted);
         }
+
+        /* --- INICIO: Nuevos estilos para notificaciones y confirmaciones --- */
+        #notification-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000;
+            display: grid;
+            gap: 10px;
+        }
+        .notification {
+            background: var(--card);
+            color: var(--text);
+            padding: 12px 18px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            box-shadow: 0 4px 20px rgba(0,0,0,.4);
+            opacity: 0;
+            transform: translateX(100%);
+            animation: slideIn 0.3s forwards;
+        }
+        .notification.success { border-left: 4px solid var(--accent); }
+        .notification.error { border-left: 4px solid var(--danger); }
+        .notification.info { border-left: 4px solid var(--accent-2); }
+        .notification.fade-out {
+            animation: slideOut 0.4s forwards;
+        }
+        @keyframes slideIn {
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        @keyframes slideOut {
+            from {
+                opacity: 1;
+                transform: translateX(0);
+            }
+            to {
+                opacity: 0;
+                transform: translateX(100%);
+            }
+        }
+        /* --- FIN: Nuevos estilos --- */
 
         /* --- Estilos responsivos para móvil --- */
         @media (max-width: 768px) {
@@ -418,6 +464,12 @@
             }
             dialog .header h3 {
                 font-size: 14px;
+            }
+            #notification-container {
+                right: 10px;
+                bottom: 10px;
+                left: 10px;
+                width: auto;
             }
         }
     </style>
@@ -538,6 +590,7 @@
             <div class="small">Formato CSV: id,descripcion,fila,columna,fechaISO</div>
         </section>
     </main>
+
     <dialog id="editDialog">
         <div class="header">
             <h3>Editar hule</h3>
@@ -569,6 +622,21 @@
             <button class="btn danger" id="btnDelete">Eliminar</button>
         </div>
     </dialog>
+
+    <dialog id="confirmDialog">
+        <div class="header">
+            <h3 id="confirmTitle">Confirmación</h3>
+        </div>
+        <div class="content">
+            <p id="confirmMessage" style="margin: 0;"></p>
+        </div>
+        <div class="actions">
+            <button class="btn ghost" id="btnConfirmCancel">Cancelar</button>
+            <button class="btn danger" id="btnConfirmOk">Confirmar</button>
+        </div>
+    </dialog>
+
+    <div id="notification-container"></div>
     <script>
         // ====== Datos base ======
         const ROWS = ["A","B","C","D","E","F","G","H","I","J","K","L","M","N","Ñ","O"]; // incluye Ñ
@@ -689,16 +757,51 @@
             const el = document.querySelector(`[data-cell="${keyCell(r,c)}"]`);
             if (!el) return;
             const grid = $('#grid');
-            // Asegurarse de que el grid esté visible
-            filterGrid(''); // Limpia cualquier filtro para mostrar la celda
+            filterGrid('');
             $('#quickSearch').value = '';
-
             el.classList.add('highlight');
             el.scrollIntoView({behavior:'smooth', block:'center', inline:'center'});
             setTimeout(()=> el.classList.remove('highlight'), 2000);
-            // Switch to grid tab
             activateTab('tab-grid');
         }
+
+        // --- INICIO: Nuevas funciones de notificación y confirmación ---
+        /** Muestra una notificación tipo 'toast' */
+        function showNotification(message, type = 'info', duration = 3000) {
+            const container = $('#notification-container');
+            const notif = document.createElement('div');
+            notif.className = `notification ${type}`;
+            notif.textContent = message;
+            container.appendChild(notif);
+
+            setTimeout(() => {
+                notif.classList.add('fade-out');
+                notif.addEventListener('animationend', () => notif.remove());
+            }, duration);
+        }
+
+        /** Muestra un diálogo de confirmación y devuelve una promesa */
+        function showConfirm(message) {
+            const dialog = $('#confirmDialog');
+            $('#confirmMessage').textContent = message;
+            dialog.showModal();
+
+            return new Promise((resolve) => {
+                const close = (value) => {
+                    dialog.close();
+                    // Limpia los listeners para evitar ejecuciones múltiples
+                    $('#btnConfirmOk').removeEventListener('click', onOk);
+                    $('#btnConfirmCancel').removeEventListener('click', onCancel);
+                    resolve(value);
+                }
+                const onOk = () => close(true);
+                const onCancel = () => close(false);
+                
+                $('#btnConfirmOk').addEventListener('click', onOk);
+                $('#btnConfirmCancel').addEventListener('click', onCancel);
+            });
+        }
+        // --- FIN: Nuevas funciones ---
 
         // ====== Render de GRID ======
         function renderGrid(){
@@ -707,10 +810,8 @@
             const table = document.createElement('table');
             const thead = document.createElement('thead');
             const trh = document.createElement('tr');
-            trh.appendChild(document.createElement('th')); // corner
-            for (const c of COLS){
-                const th = document.createElement('th'); th.textContent = c; trh.appendChild(th);
-            }
+            trh.appendChild(document.createElement('th'));
+            for (const c of COLS){ const th = document.createElement('th'); th.textContent = c; trh.appendChild(th); }
             thead.appendChild(trh); table.appendChild(thead);
 
             const tbody = document.createElement('tbody');
@@ -737,71 +838,62 @@
 
         function onCellClick(r,c){
             const item = getAt(r,c);
-            if (item){ openEdit(item); } else { // prellenar agregar manual
+            if (item){ openEdit(item); } else {
                 activateTab('tab-add');
                 $('#assignMode').value = 'manual';
                 $('#addRow').value = r; $('#addCol').value = String(c);
                 $('#addId').focus();
             }
         }
-
-        // ====== Render select options ======
+        
         function fillSelects(){
             const rows = ROWS.map(r=> `<option value="${r}">${r}</option>`).join('');
             const cols = COLS.map(c=> `<option value="${c}">${c}</option>`).join('');
             ['addRow','editRow'].forEach(id=> $('#'+id).innerHTML = rows);
             ['addCol','editCol'].forEach(id=> $('#'+id).innerHTML = cols);
         }
-
-        // ====== Tabs ======
+        
         function activateTab(id){
             $$('.section').forEach(s=> s.classList.remove('active'));
             $('#'+id).classList.add('active');
             $$('.tab-btn').forEach(b=> b.classList.toggle('active', b.dataset.tab===id));
-            const titles = {
-                'tab-grid':'Mapa del almacén',
-                'tab-add':'Agregar hule',
-                'tab-search':'Búsqueda por número',
-                'tab-import':'Importar / Exportar CSV',
-            };
+            const titles = { 'tab-grid':'Mapa del almacén', 'tab-add':'Agregar hule', 'tab-search':'Búsqueda por número', 'tab-import':'Importar / Exportar CSV' };
             $('#panelTitle').textContent = titles[id] || '';
         }
 
         $$('.tab-btn').forEach(btn=> btn.addEventListener('click', ()=> activateTab(btn.dataset.tab)));
-
-        // ====== Alta ======
+        
         $('#addForm').addEventListener('submit', (e)=>{
             e.preventDefault();
             const id = $('#addId').value.trim();
             const desc = $('#addDesc').value.trim();
             const mode = $('#assignMode').value;
             let row = $('#addRow').value; let col = Number($('#addCol').value);
-            if (!validateId(id)) { alert('Número inválido. Usa dígitos y opcional una letra (ej. 1450 o 1450a).'); return; }
+            if (!validateId(id)) { showNotification('Número inválido. Usa dígitos y opcionalmente una letra (ej. 1450 o 1450a).', 'error'); return; }
             if (mode==='auto'){
                 const pos = nextFree();
-                if (!pos) { alert('No hay espacios disponibles.'); return; }
+                if (!pos) { showNotification('No hay espacios disponibles.', 'error'); return; }
                 row = pos.row; col = pos.col;
             } else {
-                if (!ROWS.includes(row) || !COLS.includes(col)) { alert('Posición inválida.'); return; }
-                if (!isFree(row,col)) { alert('La celda seleccionada ya está ocupada.'); return; }
+                if (!ROWS.includes(row) || !COLS.includes(col)) { showNotification('Posición inválida.', 'error'); return; }
+                if (!isFree(row,col)) { showNotification('La celda seleccionada ya está ocupada.', 'error'); return; }
             }
             const item = {id, desc, row, col, ts: new Date().toISOString()};
             store.items.push(item); saveToLocal(); renderAll();
             $('#addForm').reset();
-            $('#assignMode').value = mode; // conservar
-            alert(`Agregado en ${row}-${col}.`);
+            $('#assignMode').value = mode;
+            showNotification(`Hule '${id}' agregado en ${row}-${col}.`, 'success');
             focusCell(row,col);
         });
 
         $('#btnSuggest').addEventListener('click', ()=>{
             const p = nextFree();
-            if (!p) { alert('No hay espacios libres.'); return; }
+            if (!p) { showNotification('No hay espacios libres.', 'info'); return; }
             $('#addRow').value = p.row; $('#addCol').value = String(p.col);
             activateTab('tab-grid'); focusCell(p.row, p.col);
         });
-
-        // ====== Edición ======
-        let editing = null; // referencia al item en edición (por índice)
+        
+        let editing = null;
 
         function openEdit(item){
             editing = store.items.findIndex(x=> x.row===item.row && x.col===item.col);
@@ -819,29 +911,29 @@
             const id = $('#editId').value.trim();
             const desc = $('#editDesc').value.trim();
             const row = $('#editRow').value; const col = Number($('#editCol').value);
-            if (!validateId(id)) { alert('Número inválido.'); return; }
-            if (!ROWS.includes(row) || !COLS.includes(col)) { alert('Posición inválida.'); return; }
+            if (!validateId(id)) { showNotification('Número de serie inválido.', 'error'); return; }
+            if (!ROWS.includes(row) || !COLS.includes(col)) { showNotification('Posición inválida.', 'error'); return; }
 
-            // Si cambió de celda, verificar disponibilidad
             const old = store.items[editing];
             if (old.row!==row || old.col!==col) {
-                if (!isFree(row,col)) { alert('La celda destino está ocupada.'); return; }
+                if (!isFree(row,col)) { showNotification('La celda destino está ocupada.', 'error'); return; }
             }
             store.items[editing] = { ...old, id, desc, row, col };
             saveToLocal(); renderAll();
             $('#editDialog').close();
+            showNotification('Cambios guardados exitosamente.', 'success');
             focusCell(row,col);
         });
 
-        $('#btnDelete').addEventListener('click', ()=>{
+        $('#btnDelete').addEventListener('click', async ()=>{
             if (editing==null) return;
             const it = store.items[editing];
-            const ok = confirm(`¿Eliminar ${it.id} en ${it.row}-${it.col}?`);
+            const ok = await showConfirm(`¿Estás seguro de que quieres eliminar el hule '${it.id}' en la celda ${it.row}-${it.col}?`);
             if (!ok) return;
             store.items.splice(editing,1); editing=null; saveToLocal(); renderAll(); $('#editDialog').close();
+            showNotification(`Hule '${it.id}' eliminado.`, 'success');
         });
-
-        // ====== Búsqueda ======
+        
         function doSearch(q){
             const query = q.trim().toLowerCase();
             const res = store.items.filter(it => it.id.toLowerCase().includes(query));
@@ -862,76 +954,61 @@
         $('#btnSearch').addEventListener('click', ()=> doSearch($('#searchInput').value));
         $('#btnSearchClear').addEventListener('click', ()=> { $('#searchInput').value=''; doSearch(''); });
 
-        // ====== Filtro Visual del Grid ======
         function filterGrid(query) {
             const q = query.trim().toLowerCase();
             const table = $('#grid table');
             if (!table) return;
-
             const dataRows = $$('tbody tr', table);
             const headerCols = $$('thead th', table).slice(1);
-
             if (!q) {
                 dataRows.forEach(tr => tr.style.display = '');
                 headerCols.forEach(th => th.style.display = '');
                 dataRows.forEach(tr => { $$('td', tr).forEach(td => td.style.display = ''); });
                 return;
             }
-
             const matchingItems = store.items.filter(it => it.id.toLowerCase().includes(q));
             const visibleRows = new Set(matchingItems.map(it => it.row));
             const visibleCols = new Set(matchingItems.map(it => it.col));
-
-            dataRows.forEach(tr => {
-                const rowHeader = tr.querySelector('th')?.textContent;
-                tr.style.display = (rowHeader && visibleRows.has(rowHeader)) ? '' : 'none';
-            });
-
-            headerCols.forEach((th, index) => {
-                const colNum = index + 1;
-                th.style.display = visibleCols.has(colNum) ? '' : 'none';
-            });
-
-            dataRows.forEach(tr => {
-                $$('td', tr).forEach((td, index) => {
-                    const colNum = index + 1;
-                    td.style.display = visibleCols.has(colNum) ? '' : 'none';
-                });
-            });
+            dataRows.forEach(tr => { const rowHeader = tr.querySelector('th')?.textContent; tr.style.display = (rowHeader && visibleRows.has(rowHeader)) ? '' : 'none'; });
+            headerCols.forEach((th, index) => { const colNum = index + 1; th.style.display = visibleCols.has(colNum) ? '' : 'none'; });
+            dataRows.forEach(tr => { $$('td', tr).forEach((td, index) => { const colNum = index + 1; td.style.display = visibleCols.has(colNum) ? '' : 'none'; }); });
         }
 
         $('#quickSearch').addEventListener('input', (e) => filterGrid(e.target.value));
-        $('#btnClearSearch').addEventListener('click', ()=> {
-            $('#quickSearch').value = '';
-            filterGrid('');
-        });
+        $('#btnClearSearch').addEventListener('click', ()=> { $('#quickSearch').value = ''; filterGrid(''); });
 
-        // ====== Import/Export ======
         $('#btnExport').addEventListener('click', ()=>{
             const csv = toCSV();
             const now = new Date();
             const name = `hules_${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}.csv`;
             download(name, csv);
+            showNotification('Exportación CSV iniciada.', 'success');
         });
 
-        $('#btnImport').addEventListener('click', async ()=>{
+        $('#btnImport').addEventListener('click', async () => {
             const file = $('#fileInput').files?.[0];
-            if (!file) { alert('Elige un CSV primero.'); return; }
-            const text = await file.text();
-            const replace = $('#replaceMode').checked;
-            await importCSV(text, {replace});
-            alert('Importación completada.');
+            if (!file) { showNotification('Elige un archivo CSV primero.', 'error'); return; }
+            try {
+                const text = await file.text();
+                const replace = $('#replaceMode').checked;
+                await importCSV(text, { replace });
+                showNotification('Importación completada exitosamente.', 'success');
+                $('#fileInput').value = ''; // Limpiar el input
+            } catch (error) {
+                showNotification('Error al leer o procesar el archivo.', 'error');
+                console.error("Error detallado en la importación:", error);
+            }
         });
 
-        $('#btnClearAll').addEventListener('click', ()=>{
-            if (!store.items.length) { alert('Ya está vacío.'); return; }
-            const ok = confirm('¿Seguro que deseas vaciar todo el almacén? Esta acción no se puede deshacer.');
+        $('#btnClearAll').addEventListener('click', async ()=>{
+            if (!store.items.length) { showNotification('El almacén ya está vacío.', 'info'); return; }
+            const ok = await showConfirm('¿Seguro que deseas vaciar TODO el almacén? Esta acción no se puede deshacer.');
             if (!ok) return;
             store.items = []; saveToLocal(); renderAll();
+            showNotification('Almacén vaciado completamente.', 'success');
         });
-
-        // ====== Zoom (ancho de celdas) ======
-        let zoom = 1; // 1 = 100%
+        
+        let zoom = 1;
         function applyZoom(){
             const w = 90 * zoom; const h = 42 * zoom;
             $$('#grid td').forEach(td=> { td.style.minWidth = w+'px'; td.style.height = h+'px'; });
@@ -939,24 +1016,11 @@
         }
         $('#btnZoomIn').addEventListener('click', ()=> { zoom = Math.min(2, zoom+0.1); applyZoom(); });
         $('#btnZoomOut').addEventListener('click', ()=> { zoom = Math.max(0.6, zoom-0.1); applyZoom(); });
-
-        // ====== Render general ======
+        
         function updateCounters(){ $('#countSpan').textContent = `${countOccupied()} ocupados`; }
-
-        function renderAll(){
-            renderGrid();
-            updateCounters();
-            applyZoom();
-            filterGrid($('#quickSearch').value); // Re-apply filter on full render
-        }
-
-        // ====== Init ======
-        function init(){
-            fillSelects();
-            loadFromLocal();
-            renderAll();
-        }
-
+        function renderAll(){ renderGrid(); updateCounters(); applyZoom(); filterGrid($('#quickSearch').value); }
+        
+        function init(){ fillSelects(); loadFromLocal(); renderAll(); }
         init();
     </script>
 </body>
